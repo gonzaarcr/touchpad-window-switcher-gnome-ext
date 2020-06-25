@@ -1,69 +1,14 @@
+
 const Clutter = imports.gi.Clutter;
-const Config = imports.misc.config;
 const Lang = imports.lang;
-const Main = imports.ui.main;
 const Meta = imports.gi.Meta;
-const Shell = imports.gi.Shell;
 const Signals = imports.signals;
 const SwitcherPopup = imports.ui.switcherPopup;
-const Utils = imports.misc.extensionUtils;
 
 const AltTab = imports.ui.altTab;
 
 let gestureHandler = null;
 
-/*
-function my_init(items) {
-	super._init({ style_class: 'switcher-popup',
-				  reactive: true,
-				  visible: false });
-
-	this._switcherList = null;
-
-	this._items = items || [];
-	this._selectedIndex = 0;
-
-	// this.connect('destroy', this._onDestroy.bind(this));
-
-	// Main.uiGroup.add_actor(this);
-
-	//this._systemModalOpenedId =
-	//    Main.layoutManager.connect('system-modal-opened', () => this.destroy());
-
-	this._haveModal = false;
-	this._modifierMask = 0;
-
-	this._motionTimeoutId = 0;
-	this._initialDelayTimeoutId = 0;
-	this._noModsTimeoutId = 0;
-
-	this.add_constraint(new Clutter.BindConstraint({
-		source: global.stage,
-		coordinate: Clutter.BindCoordinate.ALL,
-	}));
-
-	// Initially disable hover so we ignore the enter-event if
-	// the switcher appears underneath the current pointer location
-	this._disableHover();
-}*/
-
-function my_onDestroy() {
-	this._popModal();
-
-	// Main.layoutManager.disconnect(this._systemModalOpenedId);
-
-	if (this._motionTimeoutId != 0)
-		GLib.source_remove(this._motionTimeoutId);
-	if (this._initialDelayTimeoutId != 0)
-		GLib.source_remove(this._initialDelayTimeoutId);
-	if (this._noModsTimeoutId != 0)
-		GLib.source_remove(this._noModsTimeoutId);
-
-	// Make sure the SwitcherList is always destroyed, it may not be
-	// a child of the actor at this point.
-	if (this._switcherList)
-		this._switcherList.destroy();
-}
 
 const TouchpadGestureAction = new Lang.Class({
 	Name: 'TouchpadGestureAction',
@@ -85,7 +30,6 @@ const TouchpadGestureAction = new Lang.Class({
 		}
 		this._dx = 0;
 		this._dy = 0;
-		// this._ws = null;
 
 		this.DIRECTION_LOOKUP = {
 			0: Meta.MotionDirection.RIGHT,
@@ -96,7 +40,6 @@ const TouchpadGestureAction = new Lang.Class({
 		this._actionCallbackID = this.connect('activated', Lang.bind(this, this._doAction));
 		this.defaultDelay = SwitcherPopup.SwitcherPopup.POPUP_DELAY_TIMEOUT;
 		this.defaultInit = SwitcherPopup.SwitcherPopup.prototype._init;
-		this.defaultDestroy = SwitcherPopup.SwitcherPopup.prototype._onDestroy;
 	},
 
 	_handleEvent: function(actor, event) {
@@ -141,10 +84,7 @@ const TouchpadGestureAction = new Lang.Class({
 	_gestureStarted: function() {
 		SwitcherPopup.SwitcherPopup.POPUP_DELAY_TIMEOUT = 0
 		// SwitcherPopup.SwitcherPopup.prototype._init = () => { this.defaultInit(); };
-		SwitcherPopup.SwitcherPopup.prototype._onDestroy = my_onDestroy;
 		this.emit('activated', 'open-switcher');
-		// this._ws = new AltTab.WindowSwitcherPopup();
-		// this._ws._select(this._ws._next());
 
 		return Clutter.EVENT_STOP;
 	},
@@ -156,21 +96,11 @@ const TouchpadGestureAction = new Lang.Class({
 				this._virtualKeyboard.notify_keyval(Clutter.get_current_event_time(), Clutter.KEY_Tab , Clutter.KeyState.PRESSED);
 				this._virtualKeyboard.notify_keyval(Clutter.get_current_event_time(), Clutter.KEY_Tab , Clutter.KeyState.RELEASED);
 				global.log("open-switcher");
-				// this._ws = new AltTab.WindowSwitcherPopup();
-				// Main.layoutManager.disconnect(this._ws._systemModalOpenedId);
-				if (!this._ws.show(false, 'switch-windows', 8)) {
-					global.log("error showing modal")
-					// this._ws.destroy();
-					// this._ws = undefined;
-				}
 				break;
 			case 'move-right':
 				this._virtualKeyboard.notify_keyval(Clutter.get_current_event_time(), Clutter.KEY_Tab, Clutter.KeyState.PRESSED);
 				this._virtualKeyboard.notify_keyval(Clutter.get_current_event_time(), Clutter.KEY_Tab, Clutter.KeyState.RELEASED);
 				global.log("move-right");
-				if (this._ws) {
-					// this._ws._select(this._ws._next());
-				}
 				this._dx = 0;
 				this._dy = 0;
 				break;
@@ -180,19 +110,12 @@ const TouchpadGestureAction = new Lang.Class({
 				this._virtualKeyboard.notify_keyval(Clutter.get_current_event_time(), Clutter.KEY_Tab, Clutter.KeyState.RELEASED);
 				this._virtualKeyboard.notify_keyval(Clutter.get_current_event_time(), Clutter.KEY_Shift_L, Clutter.KeyState.RELEASED);
 				global.log("move-left");
-				if (this._ws) {
-					// this._ws._select(this._ws._next());
-				}
 				this._dx = 0;
 				this._dy = 0;
 				break;
 			case 'close-switcher':
 				this._virtualKeyboard.notify_keyval(Clutter.get_current_event_time(), Clutter.KEY_Alt_L, Clutter.KeyState.RELEASED);
 				global.log("close-switcher");
-				if (this._ws) {
-					// this._ws.destroy();
-					// this._ws = undefined;
-				}
 				this._dx = 0;
 				this._dy = 0;
 				break;
@@ -207,11 +130,9 @@ const TouchpadGestureAction = new Lang.Class({
 
 		if (dir == Meta.MotionDirection.RIGHT && motion > MOTION_THRESHOLD) {
 			this.emit('activated', 'move-right');
-			// this._ws._select(this._ws._next());
 			return Clutter.EVENT_STOP;
 		} else if (dir == Meta.MotionDirection.LEFT && motion > MOTION_THRESHOLD) {
 			this.emit('activated', 'move-left');
-			// this._ws._select(this._ws._previous());
 			return Clutter.EVENT_STOP;
 		} else {
 			return Clutter.EVENT_PROPAGATE;
@@ -221,9 +142,7 @@ const TouchpadGestureAction = new Lang.Class({
 	_gestureEnd: function() {
 		SwitcherPopup.SwitcherPopup.POPUP_DELAY_TIMEOUT = this.defaultDelay;
 		// SwitcherPopup.SwitcherPopup.prototype._init = this.defaultInit;
-		SwitcherPopup.SwitcherPopup.prototype._onDestroy = this.defaultDestroy;
 		this.emit('activated', 'close-switcher');
-		// this._ws._finish();
 		return Clutter.EVENT_STOP;
 	},
 
@@ -233,14 +152,15 @@ const TouchpadGestureAction = new Lang.Class({
 		// just to be sure
 		SwitcherPopup.SwitcherPopup.POPUP_DELAY_TIMEOUT = this.defaultDelay;
 		// SwitcherPopup.SwitcherPopup.prototype._init = this.defaultInit;
-		SwitcherPopup.SwitcherPopup.prototype._onDestroy = this.defaultDestroy;
 	}
 });
+
 
 function enable() {
 	Signals.addSignalMethods(TouchpadGestureAction.prototype);
 	gestureHandler = new TouchpadGestureAction(global.stage);
 }
+
 
 function disable() {
 	gestureHandler._cleanup();
