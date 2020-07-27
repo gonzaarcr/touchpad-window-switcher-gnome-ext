@@ -3,12 +3,17 @@ const Clutter = imports.gi.Clutter;
 const Lang = imports.lang;
 const Meta = imports.gi.Meta;
 const Signals = imports.signals;
-const SwitcherPopup = imports.ui.switcherPopup;
 
-const AltTab = imports.ui.altTab;
+const ExtensionUtils = imports.misc.extensionUtils;
+const Me = ExtensionUtils.getCurrentExtension();
+const MySwitcherPopup = Me.imports.mySwitcherPopup;
+const MyAltTab = Me.imports.myAltTab;
 
 let gestureHandler = null;
 
+let popup = null;
+
+const MOTION_THRESHOLD = 400;
 
 const TouchpadGestureAction = new Lang.Class({
 	Name: 'TouchpadGestureAction',
@@ -38,8 +43,6 @@ const TouchpadGestureAction = new Lang.Class({
 			3: Meta.MotionDirection.DOWN
 		};
 		this._actionCallbackID = this.connect('activated', Lang.bind(this, this._doAction));
-		this.defaultDelay = SwitcherPopup.SwitcherPopup.POPUP_DELAY_TIMEOUT;
-		this.defaultInit = SwitcherPopup.SwitcherPopup.prototype._init;
 	},
 
 	_handleEvent: function(actor, event) {
@@ -66,7 +69,7 @@ const TouchpadGestureAction = new Lang.Class({
 		}
 		let dir = this.DIRECTION_LOOKUP[rounded_direction];
 
-		global.log("_handleEvent");
+		// global.log("_handleEvent");
 		switch (event.get_gesture_phase()) {
 			case Clutter.TouchpadGesturePhase.BEGIN:
 				return this._gestureStarted();
@@ -82,8 +85,6 @@ const TouchpadGestureAction = new Lang.Class({
 	},
 
 	_gestureStarted: function() {
-		SwitcherPopup.SwitcherPopup.POPUP_DELAY_TIMEOUT = 0
-		// SwitcherPopup.SwitcherPopup.prototype._init = () => { this.defaultInit(); };
 		this.emit('activated', 'open-switcher');
 
 		return Clutter.EVENT_STOP;
@@ -92,30 +93,26 @@ const TouchpadGestureAction = new Lang.Class({
 	_doAction: function(sender, action) {
 		switch (action) {
 			case 'open-switcher':
-				this._virtualKeyboard.notify_keyval(Clutter.get_current_event_time(), Clutter.KEY_Alt_L, Clutter.KeyState.PRESSED);
-				this._virtualKeyboard.notify_keyval(Clutter.get_current_event_time(), Clutter.KEY_Tab , Clutter.KeyState.PRESSED);
-				this._virtualKeyboard.notify_keyval(Clutter.get_current_event_time(), Clutter.KEY_Tab , Clutter.KeyState.RELEASED);
 				global.log("open-switcher");
+
+				popup = new MyAltTab.WindowSwitcherPopup();
+				if (!popup.show(false, '', 0)) {
+					tabPopup.destroy();
+				}
 				break;
 			case 'move-right':
-				this._virtualKeyboard.notify_keyval(Clutter.get_current_event_time(), Clutter.KEY_Tab, Clutter.KeyState.PRESSED);
-				this._virtualKeyboard.notify_keyval(Clutter.get_current_event_time(), Clutter.KEY_Tab, Clutter.KeyState.RELEASED);
-				global.log("move-right");
+				popup._select(popup._next());
 				this._dx = 0;
 				this._dy = 0;
 				break;
 			case 'move-left':
-				this._virtualKeyboard.notify_keyval(Clutter.get_current_event_time(), Clutter.KEY_Shift_L, Clutter.KeyState.PRESSED);
-				this._virtualKeyboard.notify_keyval(Clutter.get_current_event_time(), Clutter.KEY_Tab, Clutter.KeyState.PRESSED);
-				this._virtualKeyboard.notify_keyval(Clutter.get_current_event_time(), Clutter.KEY_Tab, Clutter.KeyState.RELEASED);
-				this._virtualKeyboard.notify_keyval(Clutter.get_current_event_time(), Clutter.KEY_Shift_L, Clutter.KeyState.RELEASED);
-				global.log("move-left");
+				popup._select(popup._previous());
 				this._dx = 0;
 				this._dy = 0;
 				break;
 			case 'close-switcher':
-				this._virtualKeyboard.notify_keyval(Clutter.get_current_event_time(), Clutter.KEY_Alt_L, Clutter.KeyState.RELEASED);
-				global.log("close-switcher");
+				popup._finish(global.display.get_current_time_roundtrip());
+				popup = null;
 				this._dx = 0;
 				this._dy = 0;
 				break;
@@ -125,9 +122,6 @@ const TouchpadGestureAction = new Lang.Class({
 	},
 
 	_gestureUpdate: function(dir, motion) {
-		const MOTION_THRESHOLD = 200;
-		global.log("_gestureUpdate");
-
 		if (dir == Meta.MotionDirection.RIGHT && motion > MOTION_THRESHOLD) {
 			this.emit('activated', 'move-right');
 			return Clutter.EVENT_STOP;
@@ -140,8 +134,6 @@ const TouchpadGestureAction = new Lang.Class({
 	},
 
 	_gestureEnd: function() {
-		SwitcherPopup.SwitcherPopup.POPUP_DELAY_TIMEOUT = this.defaultDelay;
-		// SwitcherPopup.SwitcherPopup.prototype._init = this.defaultInit;
 		this.emit('activated', 'close-switcher');
 		return Clutter.EVENT_STOP;
 	},
@@ -149,9 +141,6 @@ const TouchpadGestureAction = new Lang.Class({
 	_cleanup: function() {
 		global.stage.disconnect(this._gestureCallbackID);
 		this.disconnect(this._actionCallbackID);
-		// just to be sure
-		SwitcherPopup.SwitcherPopup.POPUP_DELAY_TIMEOUT = this.defaultDelay;
-		// SwitcherPopup.SwitcherPopup.prototype._init = this.defaultInit;
 	}
 });
 
