@@ -7,6 +7,7 @@ const Lang = imports.lang;
 const Signals = imports.signals;
 
 const Main = imports.ui.main;
+const WindowManager = imports.ui.windowManager;
 
 const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
@@ -48,6 +49,7 @@ const TouchpadGestureAction = new Lang.Class({
 		};
 		this._actionCallbackID = this.connect('activated', Lang.bind(this, this._doAction));
 		this._lastVertical = 0;
+		this._shouldAnimate = WindowManager.WindowManager.prototype._shouldAnimate;
 	},
 
 	_handleEvent: function(actor, event) {
@@ -150,7 +152,6 @@ const TouchpadGestureAction = new Lang.Class({
 			}
 			ret = Clutter.EVENT_STOP;
 		} else if (dir == Meta.MotionDirection.UP) {
-			global.log(global.get_current_time() - this._lastVertical);
 			if (popup == null && (global.get_current_time() - this._lastVertical) > 1000) {
 				this._lastVertical = global.get_current_time();
 				if (this._canUnshowDesktop()) {
@@ -162,7 +163,6 @@ const TouchpadGestureAction = new Lang.Class({
 				}
 			}
 		} else if (dir == Meta.MotionDirection.DOWN) {
-			global.log(global.get_current_time() - this._lastVertical);
 			if (popup == null && (global.get_current_time() - this._lastVertical) > 1000) {
 				this._lastVertical = global.get_current_time();
 				if (Main.overview.visible) {
@@ -187,7 +187,6 @@ const TouchpadGestureAction = new Lang.Class({
 
 	_isShowingDesktop: function() {
 		let windows = global.workspace_manager.get_active_workspace().list_windows();
-		global.log(windows.map(x => x.minimized).join(', '));
 		return windows.every(x => x.minimized);
 	},
 
@@ -202,6 +201,7 @@ const TouchpadGestureAction = new Lang.Class({
 				windows[i].minimize();
 			}
 		}
+		this._restoreAnimations();
 	},
 
 	_unshowDesktop: function() {
@@ -216,16 +216,11 @@ const TouchpadGestureAction = new Lang.Class({
 	},
 
 	_disableAnimations: function() {
-		this._settings = new Gio.Settings({ schema_id: 'org.gnome.desktop.interface' });
-		this._defaultAnimation = this._settings.get_boolean('enable-animations');
-		this._settings.set_boolean('enable-animations', false);
+		WindowManager.WindowManager.prototype._shouldAnimate = () => { return false; }
 	},
 
 	_restoreAnimations: function() {
-		if (this._defaultAnimation)
-			this._settings.set_boolean('enable-animations', true);
-		this._settings = null;
-		this._defaultAnimation = null;
+		WindowManager.WindowManager.prototype._shouldAnimate = this._shouldAnimate;
 	},
 
 	_gestureEnd: function() {
@@ -235,6 +230,7 @@ const TouchpadGestureAction = new Lang.Class({
 
 	_cleanup: function() {
 		global.stage.disconnect(this._gestureCallbackID);
+		this._restoreAnimations();
 		this.disconnect(this._actionCallbackID);
 	}
 });
