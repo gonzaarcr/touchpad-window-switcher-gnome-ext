@@ -1,5 +1,5 @@
 {
-	"name": "Tocuhpad Window Switcher",
+	"name": "Touchpad Window Switcher",
 	"description": "Window switcher (Wayland only)",
 	"shell-version": [
 		"3.34",
