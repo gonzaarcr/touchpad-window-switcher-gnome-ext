@@ -18,13 +18,21 @@ let gestureHandler = null;
 let popup = null;
 
 const MOTION_THRESHOLD = 200;
+const FIRST_MOTION_THRESHOLD = 100;
 
 
-const TouchpadGestureAction = new Lang.Class({
-	Name: 'TouchpadGestureAction',
+function log(msg) {
+	const debug = true;
+	if (!debug)
+		return;
 
-	_init: function(actor) {
+	let TAG = '[TOUCHPAD_SWITCHER] ';
+	global.log(TAG + msg);
+}
 
+const TouchpadGestureAction = class {
+
+	constructor(actor) {
 		if (Clutter.DeviceManager) {
 			// Fallback for GNOME 3.32 and 3.34
 			const deviceManager = Clutter.DeviceManager.get_default();
@@ -50,9 +58,11 @@ const TouchpadGestureAction = new Lang.Class({
 		this._actionCallbackID = this.connect('activated', Lang.bind(this, this._doAction));
 		this._lastVertical = 0;
 		this._shouldAnimate = WindowManager.WindowManager.prototype._shouldAnimate;
-	},
+		this._motion_threshold = FIRST_MOTION_THRESHOLD;
+		this.toMaximize = [];
+	}
 
-	_handleEvent: function(actor, event) {
+	_handleEvent(actor, event) {
 		// Only look for touchpad swipes
 		if (event.type() != Clutter.EventType.TOUCHPAD_SWIPE)
 			return Clutter.EVENT_PROPAGATE;
@@ -67,12 +77,22 @@ const TouchpadGestureAction = new Lang.Class({
 		this._dy += dy;
 
 		let magnitude = Math.sqrt(Math.pow(this._dy, 2) + Math.pow(this._dx, 2));
+		magnitude = Math.max(Math.abs(this._dx), Math.abs(this._dy))
 
-		let rounded_direction = Math.round(Math.atan2(this._dy, this._dx) / Math.PI * 2);
+		let angle = Math.atan2(this._dy, this._dx);
+		let rounded_direction = Math.round((angle - Math.PI / 4) / Math.PI * 2);
 		if (rounded_direction < 0)
 			rounded_direction += 4;
 
+		rounded_direction = 0;
+		if (Math.abs(this._dx) > Math.abs(this._dy))
+			rounded_direction += this._dx > 0 ? 0 : 2;
+		else
+			rounded_direction += this._dy > 0 ? 1 : 3;
+
+
 		let dir = this.DIRECTION_LOOKUP[rounded_direction];
+		log('angle: '+ angle + ' dir: '+ rounded_direction +" magnitude: "+ Math.round(magnitude));
 
 		switch (event.get_gesture_phase()) {
 			case Clutter.TouchpadGesturePhase.BEGIN:
@@ -86,9 +106,9 @@ const TouchpadGestureAction = new Lang.Class({
 		}
 
 		return Clutter.EVENT_STOP;
-	},
+	}
 
-	_doAction: function(sender, action) {
+	_doAction(sender, action) {
 		switch (action) {
 			case 'move-right':
 				if (popup == null) {
@@ -103,8 +123,6 @@ const TouchpadGestureAction = new Lang.Class({
 				} else {
 					popup._select(popup._previous());
 				}
-				this._dx = 0;
-				this._dy = 0;
 				break;
 			case 'close-switcher':
 				if (popup != null) {
@@ -116,23 +134,22 @@ const TouchpadGestureAction = new Lang.Class({
 				this._showDesktop();
 				break;
 			case 'unshow-desktop':
-				// gsettings set org.gnome.desktop.interface enable-animations true
 				this._unshowDesktop();
 				break;
 			default:
 				break;
 		}
-	},
+	}
 
-	_createSwitcher: function() {
+	_createSwitcher() {
 		popup = new MyAltTab.WindowSwitcherPopup();
 		if (!popup.show(false, '', 0)) {
 			tabPopup.destroy();
 		}
-	},
+	}
 
-	_gestureUpdate: function(dir, motion) {
-		if (motion < MOTION_THRESHOLD)
+	_gestureUpdate(dir, motion) {
+		if (motion < this._motion_threshold)
 			return Clutter.EVENT_PROPAGATE;
 
 		let ret = Clutter.EVENT_PROPAGATE;
@@ -158,6 +175,7 @@ const TouchpadGestureAction = new Lang.Class({
 					this.emit('activated', 'unshow-desktop');
 					ret = Clutter.EVENT_STOP;
 				} else if (!Main.overview.visible) {
+					log('Show overview');
 					Main.overview.show();
 					ret = Clutter.EVENT_STOP;
 				}
@@ -166,6 +184,7 @@ const TouchpadGestureAction = new Lang.Class({
 			if (popup == null && (global.get_current_time() - this._lastVertical) > 1000) {
 				this._lastVertical = global.get_current_time();
 				if (Main.overview.visible) {
+					log('Hide overview');
 					Main.overview.hide();
 					ret = Clutter.EVENT_STOP;
 				} else {
@@ -174,27 +193,31 @@ const TouchpadGestureAction = new Lang.Class({
 				}
 			}
 		}
-		if (ret === Clutter.EVENT_STOP)
+		if (ret === Clutter.EVENT_STOP) {
 			this._dx = 0;
 			this._dy = 0;
+			this._motion_threshold = MOTION_THRESHOLD;			
+		}
 
 		return ret;
-	},
+	}
 
-	_canUnshowDesktop: function() {
+	_canUnshowDesktop() {
 		return !Main.overview.visible && this.toMaximize.length > 0 && this._isShowingDesktop();
-	},
+	}
 
-	_isShowingDesktop: function() {
+	_isShowingDesktop() {
 		let windows = global.workspace_manager.get_active_workspace().list_windows();
+		log(windows.map(x => x.minimized).join(', '));
 		return windows.every(x => x.minimized);
-	},
+	}
 
-	_showDesktop: function() {
-		this._disableAnimations();
+	_showDesktop() {
 		// TODO para distintos workspaces
+		log('Show desktop');
 		this.toMaximize = [];
 		let windows = global.workspace_manager.get_active_workspace().list_windows();
+		this._disableAnimations();
 		for (let i = 0; i < windows.length; i++) {
 			if (!windows[i].minimized) {
 				this.toMaximize.push(windows[i]);
@@ -202,42 +225,47 @@ const TouchpadGestureAction = new Lang.Class({
 			}
 		}
 		this._restoreAnimations();
-	},
+	}
 
-	_unshowDesktop: function() {
-		this._disableAnimations();
+	_unshowDesktop() {
+		log('Unshow desktop');
 		let windows = global.workspace_manager.get_active_workspace().list_windows();
+		this._disableAnimations();
 		for (let i = 0; i < windows.length; i++) {
 			if (this.toMaximize.indexOf(windows[i]) !== -1)
 				windows[i].unminimize();
 		}
 		this.toMaximize = [];
 		this._restoreAnimations();
-	},
+	}
 
-	_disableAnimations: function() {
-		WindowManager.WindowManager.prototype._shouldAnimate = () => { return false; }
-	},
+	_disableAnimations() {
+		// TODO this doesn't seem to work
+		WindowManager.WindowManager.prototype._shouldAnimate = () => { return false; };
+	}
 
-	_restoreAnimations: function() {
+	_restoreAnimations() {
 		WindowManager.WindowManager.prototype._shouldAnimate = this._shouldAnimate;
-	},
+	}
 
-	_gestureEnd: function() {
+	_gestureEnd() {
+		this._dx = 0;
+		this._dy = 0;
+		this._motion_threshold = FIRST_MOTION_THRESHOLD;
 		this.emit('activated', 'close-switcher');
 		return Clutter.EVENT_STOP;
-	},
+	}
 
-	_cleanup: function() {
+	_cleanup() {
 		global.stage.disconnect(this._gestureCallbackID);
 		this._restoreAnimations();
 		this.disconnect(this._actionCallbackID);
 	}
-});
+};
+Signals.addSignalMethods(TouchpadGestureAction.prototype);
 
 
 function enable() {
-	Signals.addSignalMethods(TouchpadGestureAction.prototype);
 	gestureHandler = new TouchpadGestureAction(global.stage);
 }
 
