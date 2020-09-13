@@ -55,7 +55,6 @@ const TouchpadGestureAction = class {
 			2: Meta.MotionDirection.LEFT,
 			3: Meta.MotionDirection.UP
 		};
-		this._actionCallbackID = this.connect('activated', Lang.bind(this, this._doAction));
 		this._lastVertical = 0;
 		this._shouldAnimate = WindowManager.WindowManager.prototype._shouldAnimate;
 		this._motion_threshold = FIRST_MOTION_THRESHOLD;
@@ -76,13 +75,7 @@ const TouchpadGestureAction = class {
 		this._dx += dx;
 		this._dy += dy;
 
-		let magnitude = Math.sqrt(Math.pow(this._dy, 2) + Math.pow(this._dx, 2));
-		magnitude = Math.max(Math.abs(this._dx), Math.abs(this._dy))
-
-		let angle = Math.atan2(this._dy, this._dx);
-		let rounded_direction = Math.round((angle - Math.PI / 4) / Math.PI * 2);
-		if (rounded_direction < 0)
-			rounded_direction += 4;
+		let magnitude = Math.max(Math.abs(this._dx), Math.abs(this._dy));
 
 		rounded_direction = 0;
 		if (Math.abs(this._dx) > Math.abs(this._dy))
@@ -90,17 +83,16 @@ const TouchpadGestureAction = class {
 		else
 			rounded_direction += this._dy > 0 ? 1 : 3;
 
-
 		let dir = this.DIRECTION_LOOKUP[rounded_direction];
-		log('angle: '+ angle + ' dir: '+ rounded_direction +" magnitude: "+ Math.round(magnitude));
 
 		switch (event.get_gesture_phase()) {
 			case Clutter.TouchpadGesturePhase.BEGIN:
-				return this._gestureUpdate(dir, magnitude);
-
 			case Clutter.TouchpadGesturePhase.UPDATE:
-				return this._gestureUpdate(dir, magnitude);
-
+				if (magnitude < this._motion_threshold)
+					return Clutter.EVENT_PROPAGATE;
+				else
+					return this._gestureUpdate(dir);
+				break;
 			default: // CANCEL or END
 				return this._gestureEnd();
 		}
@@ -108,7 +100,7 @@ const TouchpadGestureAction = class {
 		return Clutter.EVENT_STOP;
 	}
 
-	_doAction(sender, action) {
+	async _doAction(action) {
 		switch (action) {
 			case 'move-right':
 				if (popup == null) {
@@ -148,22 +140,19 @@ const TouchpadGestureAction = class {
 		}
 	}
 
-	_gestureUpdate(dir, motion) {
-		if (motion < this._motion_threshold)
-			return Clutter.EVENT_PROPAGATE;
-
+	_gestureUpdate(dir) {
 		let ret = Clutter.EVENT_PROPAGATE;
 
 		if (dir == Meta.MotionDirection.RIGHT) {
 			if (!Main.overview.visible) {
-				this.emit('activated', 'move-right');
+				this._doAction('move-right');
 			} else {
 				Main.overview.viewSelector._workspacesDisplay._getPrimaryView().navigate_focus(null, St.DirectionType.TAB_FORWARD, false);
 			}
 			ret = Clutter.EVENT_STOP;
 		} else if (dir == Meta.MotionDirection.LEFT) {
 			if (!Main.overview.visible) {
-				this.emit('activated', 'move-left');
+				this._doAction('move-left');
 			} else {
 				Main.overview.viewSelector._workspacesDisplay._getPrimaryView().navigate_focus(null, St.DirectionType.TAB_BACKWARD, false);
 			}
@@ -172,7 +161,7 @@ const TouchpadGestureAction = class {
 			if (popup == null && (global.get_current_time() - this._lastVertical) > 1000) {
 				this._lastVertical = global.get_current_time();
 				if (this._canUnshowDesktop()) {
-					this.emit('activated', 'unshow-desktop');
+					this._doAction('unshow-desktop');
 					ret = Clutter.EVENT_STOP;
 				} else if (!Main.overview.visible) {
 					log('Show overview');
@@ -188,7 +177,7 @@ const TouchpadGestureAction = class {
 					Main.overview.hide();
 					ret = Clutter.EVENT_STOP;
 				} else {
-					this.emit('activated', 'show-desktop');
+					this._doAction('show-desktop');
 					ret = Clutter.EVENT_STOP;
 				}
 			}
@@ -259,10 +248,8 @@ const TouchpadGestureAction = class {
 	_cleanup() {
 		global.stage.disconnect(this._gestureCallbackID);
 		this._restoreAnimations();
-		this.disconnect(this._actionCallbackID);
 	}
 };
-Signals.addSignalMethods(TouchpadGestureAction.prototype);
 
 
 function enable() {
