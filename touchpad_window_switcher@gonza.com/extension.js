@@ -1,10 +1,8 @@
+'use strict';
 
 const Clutter = imports.gi.Clutter;
-const Gio = imports.gi.Gio;
 const Meta = imports.gi.Meta;
 const St = imports.gi.St;
-const Lang = imports.lang;
-const Signals = imports.signals;
 
 const Main = imports.ui.main;
 const WindowManager = imports.ui.windowManager;
@@ -12,8 +10,10 @@ const WindowManager = imports.ui.windowManager;
 const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
 const MyAltTab = Me.imports.myAltTab;
+const DbusClient = Me.imports.dbusClient;
 
 let gestureHandler = null;
+let dbusClient = null;
 
 let popup = null;
 
@@ -22,7 +22,7 @@ const FIRST_MOTION_THRESHOLD = 100;
 
 
 function log(msg) {
-	const debug = true;
+	const debug = false;
 	if (!debug)
 		return;
 
@@ -32,7 +32,7 @@ function log(msg) {
 
 const TouchpadGestureAction = class {
 
-	constructor(actor) {
+	constructor(actor, dbusClient) {
 		if (Clutter.DeviceManager) {
 			// Fallback for GNOME 3.32 and 3.34
 			const deviceManager = Clutter.DeviceManager.get_default();
@@ -59,6 +59,19 @@ const TouchpadGestureAction = class {
 		this._shouldAnimate = WindowManager.WindowManager.prototype._shouldAnimate;
 		this._motion_threshold = FIRST_MOTION_THRESHOLD;
 		this.toMaximize = [];
+	}
+
+	touchpadEvent(fingers, direction) {
+		if (fingers === 0) {			
+			this._gestureEnd();
+			return
+		}
+		if (fingers !== 3)
+			return
+
+		let dir = this.DIRECTION_LOOKUP[direction];
+		log(direction)
+		this._gestureUpdate(dir)
 	}
 
 	_handleEvent(actor, event) {
@@ -241,7 +254,7 @@ const TouchpadGestureAction = class {
 		this._dx = 0;
 		this._dy = 0;
 		this._motion_threshold = FIRST_MOTION_THRESHOLD;
-		this.emit('activated', 'close-switcher');
+		this._doAction('close-switcher');
 		return Clutter.EVENT_STOP;
 	}
 
@@ -253,11 +266,15 @@ const TouchpadGestureAction = class {
 
 
 function enable() {
-	gestureHandler = new TouchpadGestureAction(global.stage);
+	gestureHandler = new TouchpadGestureAction(global.stage, dbusClient);
+	dbusClient = new DbusClient.DbusClient();
+	dbusClient.addListener(gestureHandler);
 }
 
 
 function disable() {
 	gestureHandler._cleanup();
 	gestureHandler = null;
+	dbusClient.destroy();
+	dbusClient = null;
 }
