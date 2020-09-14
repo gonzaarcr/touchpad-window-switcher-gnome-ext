@@ -9,3 +9,5 @@ Works on Wayland out of the box. To make it work on Xorg:
 3. Run the service
 
 Make sure the extension runs after the service, try disabling and enabling it on the extensions app if necesary. 
+
+![Demo](https://raw.githubusercontent.com/gonzaarcr/touchpad-window-switcher-gnome-ext/doc-resources/output.gif "Demo")
