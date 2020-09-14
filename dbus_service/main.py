@@ -13,7 +13,7 @@ import os
 import service
 
 li = libinput.LibInput()
-define = None
+device = None
 
 def setup_device():
 	md = '/dev/input/event%s'
@@ -21,12 +21,12 @@ def setup_device():
 	for i in range(20):
 		try:
 			device = li.path_add_device(md % i)
+			if device.has_capability(libinput.constant.DeviceCapability.GESTURE):
+				return
+			li.path_remove_device(device)
+			device = None
 		except:
 			pass
-		if device.has_capability(libinput.constant.DeviceCapability.GESTURE):
-			return
-		li.path_remove_device(device)
-		device = None
 
 
 class TouchpadListener(object):
@@ -100,6 +100,9 @@ def start_service():
 
 def main():
 	setup_device()
+	if device == None:
+		print('Error detecting touchpad')
+		return
 	start_service()
 
 	tpl = TouchpadListener(dbus.SessionBus())
