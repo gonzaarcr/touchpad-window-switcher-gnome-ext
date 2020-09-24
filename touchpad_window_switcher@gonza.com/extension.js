@@ -3,6 +3,7 @@
 const Clutter = imports.gi.Clutter;
 const Meta = imports.gi.Meta;
 const St = imports.gi.St;
+const GLib = imports.gi.GLib;
 
 const Main = imports.ui.main;
 const WindowManager = imports.ui.windowManager;
@@ -56,9 +57,8 @@ const TouchpadGestureAction = class {
 			3: Meta.MotionDirection.UP
 		};
 		this._lastVertical = 0;
-		this._shouldAnimate = WindowManager.WindowManager.prototype._shouldAnimate;
 		this._motion_threshold = FIRST_MOTION_THRESHOLD;
-		this.toMaximize = [];
+		this._shortcutMinimized = false;
 	}
 
 	touchpadEvent(fingers, direction) {
@@ -136,10 +136,10 @@ const TouchpadGestureAction = class {
 				}
 				break;
 			case 'show-desktop':
-				this._showDesktop();
+				this._sendKeyEvent(Clutter.KEY_Super_L, Clutter.KEY_D);
 				break;
 			case 'unshow-desktop':
-				this._unshowDesktop();
+				this._sendKeyEvent(Clutter.KEY_Super_L, Clutter.KEY_D);
 				break;
 			default:
 				break;
@@ -171,8 +171,9 @@ const TouchpadGestureAction = class {
 			}
 			ret = Clutter.EVENT_STOP;
 		} else if (dir == Meta.MotionDirection.UP) {
-			if (popup == null && (global.get_current_time() - this._lastVertical) > 1000) {
-				this._lastVertical = global.get_current_time();
+			if (popup == null && (getTime() - this._lastVertical) > 1000) {
+				this._lastVertical = getTime();
+				global.log('trying to unshow')
 				if (this._canUnshowDesktop()) {
 					this._doAction('unshow-desktop');
 					ret = Clutter.EVENT_STOP;
@@ -183,13 +184,14 @@ const TouchpadGestureAction = class {
 				}
 			}
 		} else if (dir == Meta.MotionDirection.DOWN) {
-			if (popup == null && (global.get_current_time() - this._lastVertical) > 1000) {
-				this._lastVertical = global.get_current_time();
+			if (popup == null && (getTime() - this._lastVertical) > 1000) {
+				this._lastVertical = getTime();
 				if (Main.overview.visible) {
 					log('Hide overview');
 					Main.overview.hide();
 					ret = Clutter.EVENT_STOP;
-				} else {
+				} else if (this._canShowDesktop()) {
+					global.log('show-desktop')
 					this._doAction('show-desktop');
 					ret = Clutter.EVENT_STOP;
 				}
@@ -205,54 +207,19 @@ const TouchpadGestureAction = class {
 	}
 
 	_canUnshowDesktop() {
-		return !Main.overview.visible && this.toMaximize.length > 0 && this._isShowingDesktop();
-	}
-
-	_isShowingDesktop() {
 		let windows = global.workspace_manager.get_active_workspace().list_windows();
-		log(windows.map(x => x.minimized).join(', '));
-		return windows.every(x => x.minimized);
+		return windows.length > 0 && windows.every(x => x.is_hidden())
 	}
 
-	_showDesktop() {
-		// TODO para distintos workspaces
-		log('Show desktop');
-		this.toMaximize = [];
+	_canShowDesktop() {
 		let windows = global.workspace_manager.get_active_workspace().list_windows();
-		this._disableAnimations();
-		for (let i = 0; i < windows.length; i++) {
-			if (!windows[i].minimized) {
-				this.toMaximize.push(windows[i]);
-				windows[i].minimize();
-			}
-		}
-		this._restoreAnimations();
-	}
-
-	_unshowDesktop() {
-		log('Unshow desktop');
-		let windows = global.workspace_manager.get_active_workspace().list_windows();
-		this._disableAnimations();
-		for (let i = 0; i < windows.length; i++) {
-			if (this.toMaximize.indexOf(windows[i]) !== -1)
-				windows[i].unminimize();
-		}
-		this.toMaximize = [];
-		this._restoreAnimations();
-	}
-
-	_disableAnimations() {
-		// TODO this doesn't seem to work
-		WindowManager.WindowManager.prototype._shouldAnimate = () => { return false; };
-	}
-
-	_restoreAnimations() {
-		WindowManager.WindowManager.prototype._shouldAnimate = this._shouldAnimate;
+		return windows.length > 0 && windows.some(x => !x.is_hidden())
 	}
 
 	_gestureEnd() {
 		this._dx = 0;
 		this._dy = 0;
+		this._lastVertical = 0;
 		this._motion_threshold = FIRST_MOTION_THRESHOLD;
 		this._doAction('close-switcher');
 		return Clutter.EVENT_STOP;
@@ -260,10 +227,34 @@ const TouchpadGestureAction = class {
 
 	_cleanup() {
 		global.stage.disconnect(this._gestureCallbackID);
-		this._restoreAnimations();
+	}
+
+	// https://gitlab.gnome.org/GNOME/metacity/-/blob/master/src/core/screen.c#L2297
+	async _sendKeyEvent(...keys) {
+		let currentTime = Clutter.get_current_event_time();
+		keys.forEach(key => this._virtualKeyboard.notify_keyval(currentTime, key, Clutter.KeyState.PRESSED));
+		keys.forEach(key => this._virtualKeyboard.notify_keyval(currentTime, key, Clutter.KeyState.RELEASED));
 	}
 };
 
+let timeSource = 'global'
+/**
+ * By default we use global.get_current_time, but in case it doesn’t work
+ * we use GLib. Since these two are diferent, once we switch we cannot go back
+ */
+function getTime() {
+	let time = 0;
+	if (timeSource === 'global') {
+		time = global.get_current_time();
+		if (time == 0)
+			timeSource = 'monotonic';
+		else
+			return time;
+	}
+	if (timeSource === 'monotonic') {
+		return GLib.get_monotonic_time() / 1000;
+	}
+}
 
 function enable() {
 	gestureHandler = new TouchpadGestureAction(global.stage, dbusClient);
