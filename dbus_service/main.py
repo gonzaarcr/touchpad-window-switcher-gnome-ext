@@ -61,7 +61,7 @@ class TouchpadListener(object):
 
 		gesture = event.get_gesture_event()
 		fingers = gesture.get_finger_count()
-		if fingers != 3:
+		if fingers != 3 and fingers != 4:
 			return
 
 		self._dx += gesture.get_dx()
@@ -77,7 +77,6 @@ class TouchpadListener(object):
 		else:
 			rounded_direction += 1 if self._dy > 0 else 3
 
-		# self.dbus_object.TouchpadEvent(3, 0)
 		self.dbus_object.EchoSignal(fingers, rounded_direction)
 		# time = gesture.get_time()
 		self._dx = 0
