@@ -66,12 +66,13 @@ const TouchpadGestureAction = class {
 			this._gestureEnd();
 			return
 		}
-		if (fingers !== 3)
-			return
-
 		let dir = this.DIRECTION_LOOKUP[direction];
 		log(direction)
-		this._gestureUpdate(dir)
+		if (fingers === 3) {
+			this._gestureUpdate(dir);
+		} else if (fingers === 4) {
+			this._changeWorkspace(dir);
+		}
 	}
 
 	_handleEvent(actor, event) {
@@ -227,6 +228,26 @@ const TouchpadGestureAction = class {
 
 	_cleanup() {
 		global.stage.disconnect(this._gestureCallbackID);
+	}
+
+	async _changeWorkspace(dir) {
+		let diff = 0;
+		switch (dir) {
+			case Meta.MotionDirection.RIGHT:
+			case Meta.MotionDirection.DOWN:
+				diff = -1;
+			break;
+			case Meta.MotionDirection.LEFT:
+			case Meta.MotionDirection.UP:
+				diff = 1;
+			break;
+		}
+		let newIndex = global.workspace_manager.get_active_workspace_index() + diff;
+
+		let wm = global.workspace_manager;
+		if (newIndex >= 0 && newIndex < wm.n_workspaces) {
+			wm.get_workspace_by_index(newIndex).activate(global.get_current_time());
+		}
 	}
 
 	// https://gitlab.gnome.org/GNOME/metacity/-/blob/master/src/core/screen.c#L2297
