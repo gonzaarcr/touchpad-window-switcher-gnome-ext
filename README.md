@@ -12,7 +12,7 @@ sudo apt install libinput-dev python3-pip
 pip3 install python-libinput==0.1.0
 ```
 
-3. Run the service
+3. Run the service with `python3 main.py`
 
 Make sure the extension runs after the service, try disabling and enabling it on the extensions app if necesary. 
 
