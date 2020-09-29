@@ -1,15 +1,10 @@
 'use strict';
 
-const Clutter = imports.gi.Clutter;
-const Meta = imports.gi.Meta;
-const St = imports.gi.St;
-const GLib = imports.gi.GLib;
+const { Clutter, GLib, Meta, St } = imports.gi;
 
 const Main = imports.ui.main;
-const WindowManager = imports.ui.windowManager;
 
-const ExtensionUtils = imports.misc.extensionUtils;
-const Me = ExtensionUtils.getCurrentExtension();
+const Me = imports.misc.extensionUtils.getCurrentExtension();
 const MyAltTab = Me.imports.myAltTab;
 const DbusClient = Me.imports.dbusClient;
 
@@ -24,11 +19,8 @@ const FIRST_MOTION_THRESHOLD = 100;
 
 function log(msg) {
 	const debug = false;
-	if (!debug)
-		return;
-
-	let TAG = '[TOUCHPAD_SWITCHER] ';
-	global.log(TAG + msg);
+	if (debug)
+		global.log('[TOUCHPAD_SWITCHER] ' + msg);
 }
 
 const TouchpadGestureAction = class {
@@ -67,7 +59,6 @@ const TouchpadGestureAction = class {
 			return
 		}
 		let dir = this.DIRECTION_LOOKUP[direction];
-		log(direction)
 		if (fingers === 3) {
 			this._gestureUpdate(dir);
 		} else if (fingers === 4) {
@@ -137,8 +128,6 @@ const TouchpadGestureAction = class {
 				}
 				break;
 			case 'show-desktop':
-				this._sendKeyEvent(Clutter.KEY_Super_L, Clutter.KEY_D);
-				break;
 			case 'unshow-desktop':
 				this._sendKeyEvent(Clutter.KEY_Super_L, Clutter.KEY_D);
 				break;
@@ -174,7 +163,6 @@ const TouchpadGestureAction = class {
 		} else if (dir == Meta.MotionDirection.UP) {
 			if (popup == null && (getTime() - this._lastVertical) > 1000) {
 				this._lastVertical = getTime();
-				global.log('trying to unshow')
 				if (this._canUnshowDesktop()) {
 					this._doAction('unshow-desktop');
 					ret = Clutter.EVENT_STOP;
@@ -192,7 +180,7 @@ const TouchpadGestureAction = class {
 					Main.overview.hide();
 					ret = Clutter.EVENT_STOP;
 				} else if (this._canShowDesktop()) {
-					global.log('show-desktop')
+					log('show-desktop');
 					this._doAction('show-desktop');
 					ret = Clutter.EVENT_STOP;
 				}
