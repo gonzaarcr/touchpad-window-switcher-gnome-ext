@@ -1,4 +1,3 @@
-'use strict';
 
 const { Clutter, GLib, Meta, St } = imports.gi;
 
@@ -23,21 +22,20 @@ function log(msg) {
 		global.log('[TOUCHPAD_SWITCHER] ' + msg);
 }
 
+// Meta.is_wayland_compositor
 const TouchpadGestureAction = class {
 
-	constructor(actor, dbusClient) {
+	constructor() {
 		if (Clutter.DeviceManager) {
 			// Fallback for GNOME 3.32 and 3.34
 			const deviceManager = Clutter.DeviceManager.get_default();
-			this._virtualTouchpad = deviceManager.create_virtual_device(Clutter.InputDeviceType.TOUCHPAD_DEVICE);
 			this._virtualKeyboard = deviceManager.create_virtual_device(Clutter.InputDeviceType.KEYBOARD_DEVICE);
-			this._gestureCallbackID = actor.connect('captured-event', this._handleEvent.bind(this));
+			this._gestureCallbackID = global.stage.connect('captured-event', this._handleEvent.bind(this));
 		} else {
 			// For GNOME >= 3.36
 			const seat = Clutter.get_default_backend().get_default_seat();
-			this._virtualTouchpad = seat.create_virtual_device(Clutter.InputDeviceType.POINTER_DEVICE);
 			this._virtualKeyboard = seat.create_virtual_device(Clutter.InputDeviceType.KEYBOARD_DEVICE);
-			this._gestureCallbackID = actor.connect('captured-event::touchpad', this._handleEvent.bind(this));
+			this._gestureCallbackID = global.stage.connect('captured-event::touchpad', this._handleEvent.bind(this));
 		}
 		this._dx = 0;
 		this._dy = 0;
@@ -82,7 +80,7 @@ const TouchpadGestureAction = class {
 
 		let magnitude = Math.max(Math.abs(this._dx), Math.abs(this._dy));
 
-		rounded_direction = 0;
+		let rounded_direction = 0;
 		if (Math.abs(this._dx) > Math.abs(this._dy))
 			rounded_direction += this._dx > 0 ? 0 : 2;
 		else
@@ -266,7 +264,7 @@ function getTime() {
 }
 
 function enable() {
-	gestureHandler = new TouchpadGestureAction(global.stage, dbusClient);
+	gestureHandler = new TouchpadGestureAction();
 	dbusClient = new DbusClient.DbusClient();
 	dbusClient.addListener(gestureHandler);
 }
