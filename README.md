@@ -17,7 +17,8 @@ sudo apt install libinput-dev python3-pip
 pip3 install python-libinput==0.1.0
 ```
 
-3. Run the service with `python3 main.py`
+3. Add the user to the _input_ group with `sudo gpasswd -a $USER input`
+4. Run the service with `python3 main.py`
 
 Optional: of you want the show desktop to work set up the Super+D keybinding with `gsettings set org.gnome.desktop.wm.keybindings show-desktop '<Super>d'`.
 
