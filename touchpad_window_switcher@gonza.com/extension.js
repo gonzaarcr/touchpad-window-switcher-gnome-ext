@@ -49,6 +49,7 @@ const TouchpadGestureAction = class {
 		this._lastVertical = 0;
 		this._motion_threshold = FIRST_MOTION_THRESHOLD;
 		this._shortcutMinimized = false;
+		this._overviewFocusIdx = null;
 	}
 
 	touchpadEvent(fingers, direction) {
@@ -148,14 +149,14 @@ const TouchpadGestureAction = class {
 			if (!Main.overview.visible) {
 				this._doAction('move-right');
 			} else {
-				Main.overview.viewSelector._workspacesDisplay._getPrimaryView().navigate_focus(null, St.DirectionType.TAB_FORWARD, false);
+				this._navigateOverview(1);
 			}
 			ret = Clutter.EVENT_STOP;
 		} else if (dir == Meta.MotionDirection.LEFT) {
 			if (!Main.overview.visible) {
 				this._doAction('move-left');
 			} else {
-				Main.overview.viewSelector._workspacesDisplay._getPrimaryView().navigate_focus(null, St.DirectionType.TAB_BACKWARD, false);
+				this._navigateOverview(-1);
 			}
 			ret = Clutter.EVENT_STOP;
 		} else if (dir == Meta.MotionDirection.UP) {
@@ -175,7 +176,7 @@ const TouchpadGestureAction = class {
 				this._lastVertical = getTime();
 				if (Main.overview.visible) {
 					log('Hide overview');
-					Main.overview.hide();
+					this._hideOverview();
 					ret = Clutter.EVENT_STOP;
 				} else if (this._canShowDesktop()) {
 					log('show-desktop');
@@ -208,6 +209,7 @@ const TouchpadGestureAction = class {
 		this._dy = 0;
 		this._lastVertical = 0;
 		this._motion_threshold = FIRST_MOTION_THRESHOLD;
+		this._overviewFocusIdx = null;
 		this._doAction('close-switcher');
 		return Clutter.EVENT_STOP;
 	}
@@ -234,6 +236,42 @@ const TouchpadGestureAction = class {
 		if (newIndex >= 0 && newIndex < wm.n_workspaces) {
 			wm.get_workspace_by_index(newIndex).activate(global.get_current_time());
 		}
+	}
+
+	// direction: 1 fordward, -1 backward
+	async _navigateOverview(direction) {
+		let _dir = undefined;
+		if (direction === 1)
+			_dir = St.DirectionType.TAB_FORWARD;
+		else if (direction === -1)
+			_dir = St.DirectionType.TAB_BACKWARD;
+
+		let workspaceIdx = global.workspace_manager.get_active_workspace_index();
+		let workspace = Main.overview.viewSelector._workspacesDisplay._getPrimaryView().get_children()[workspaceIdx];
+		let n = workspace.get_focus_chain().length;
+		if (n === 0)
+			return
+
+		if (this._overviewFocusIdx === null)
+			this._overviewFocusIdx = 0;
+		this._overviewFocusIdx = (this._overviewFocusIdx + n) % n;
+		let currentFocus = workspace.get_focus_chain()[this._overviewFocusIdx];
+		let grab = workspace.navigate_focus(currentFocus, _dir, true);
+		this._overviewFocusIdx += direction;
+	}
+
+	// If there’s a window selected, activated it.
+	// Otherwise only close the overview
+	async _hideOverview() {
+		if (this._overviewFocusIdx === null)
+			Main.overview.hide();
+			return;
+
+		let workspaceIdx = global.workspace_manager.get_active_workspace_index();
+		let workspace = Main.overview.viewSelector._workspacesDisplay._getPrimaryView().get_children()[workspaceIdx];
+		let win = workspace.get_focus_chain()[this._overviewFocusIdx];
+		this._overviewFocusIdx = null;
+		win._activate();
 	}
 
 	// https://gitlab.gnome.org/GNOME/metacity/-/blob/master/src/core/screen.c#L2297
