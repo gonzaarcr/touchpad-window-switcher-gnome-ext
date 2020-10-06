@@ -263,15 +263,15 @@ const TouchpadGestureAction = class {
 	// If there’s a window selected, activated it.
 	// Otherwise only close the overview
 	async _hideOverview() {
-		if (this._overviewFocusIdx === null)
+		if (this._overviewFocusIdx === null) {
 			Main.overview.hide();
-			return;
-
-		let workspaceIdx = global.workspace_manager.get_active_workspace_index();
-		let workspace = Main.overview.viewSelector._workspacesDisplay._getPrimaryView().get_children()[workspaceIdx];
-		let win = workspace.get_focus_chain()[this._overviewFocusIdx];
-		this._overviewFocusIdx = null;
-		win._activate();
+		} else {
+			let workspaceIdx = global.workspace_manager.get_active_workspace_index();
+			let workspace = Main.overview.viewSelector._workspacesDisplay._getPrimaryView().get_children()[workspaceIdx];
+			let win = workspace.get_focus_chain()[this._overviewFocusIdx];
+			this._overviewFocusIdx = null;
+			win._activate();
+		}
 	}
 
 	// https://gitlab.gnome.org/GNOME/metacity/-/blob/master/src/core/screen.c#L2297
