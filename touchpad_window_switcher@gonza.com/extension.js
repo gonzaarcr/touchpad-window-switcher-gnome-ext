@@ -6,6 +6,7 @@ const Main = imports.ui.main;
 const Me = imports.misc.extensionUtils.getCurrentExtension();
 const MyAltTab = Me.imports.myAltTab;
 const DbusClient = Me.imports.dbusClient;
+const OverviewCleaner = Me.imports.overviewCleaner;
 
 let gestureHandler = null;
 let dbusClient = null;
@@ -209,7 +210,7 @@ const TouchpadGestureAction = class {
 		this._dy = 0;
 		this._lastVertical = 0;
 		this._motion_threshold = FIRST_MOTION_THRESHOLD;
-		this._overviewFocusIdx = null;
+		// this._overviewFocusIdx = null;
 		this._doAction('close-switcher');
 		return Clutter.EVENT_STOP;
 	}
@@ -252,8 +253,12 @@ const TouchpadGestureAction = class {
 		if (n === 0)
 			return
 
-		if (this._overviewFocusIdx === null)
+		if (this._overviewFocusIdx === null) {
+			// With windows order by last used this is not necesary
+			// let currentWin = global.workspace_manager.get_active_workspace().list_windows()[0];
+			// this._overviewFocusIdx = workspace._lookupIndex(currentWin);
 			this._overviewFocusIdx = 0;
+		}
 		this._overviewFocusIdx = (this._overviewFocusIdx + n) % n;
 		let currentFocus = workspace.get_focus_chain()[this._overviewFocusIdx];
 		let grab = workspace.navigate_focus(currentFocus, _dir, true);
@@ -305,6 +310,8 @@ function enable() {
 	gestureHandler = new TouchpadGestureAction();
 	dbusClient = new DbusClient.DbusClient();
 	dbusClient.addListener(gestureHandler);
+
+	OverviewCleaner.orderOverview();
 }
 
 
@@ -313,4 +320,6 @@ function disable() {
 	gestureHandler = null;
 	dbusClient.destroy();
 	dbusClient = null;
+
+	OverviewCleaner.disorderOverview();
 }
