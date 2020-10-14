@@ -4,11 +4,11 @@
 import dbus
 import dbus.service
 
-import libinput
-
+import os
 import threading
 import time
-import os
+
+import libinput
 
 import service
 
@@ -52,7 +52,7 @@ class TouchpadListener(object):
 	def loop(self, event):
 		if event.type == libinput.constant.Event.GESTURE_SWIPE_END:
 			self._threshold = self.FIRST_MOTION_THRESHOLD
-			self.dbus_object.EchoSignal(0, 0)
+			service.get_service().TouchpadEvent(0, 0)
 			return
 
 		if event.type == libinput.constant.Event.GESTURE_SWIPE_BEGIN:
@@ -77,7 +77,7 @@ class TouchpadListener(object):
 		else:
 			rounded_direction += 1 if self._dy > 0 else 3
 
-		self.dbus_object.EchoSignal(fingers, rounded_direction)
+		service.get_service().TouchpadEvent(fingers, rounded_direction)
 		# time = gesture.get_time()
 		self._dx = 0
 		self._dy = 0
@@ -91,9 +91,7 @@ class TouchpadListener(object):
 
 
 def start_service():
-	args = 'python3 ./service.py'
-
-	proc = threading.Thread(target=os.system, args=[args])
+	proc = threading.Thread(target=service.main)
 	proc.start()
 
 

@@ -19,22 +19,26 @@ class TpService(dbus.service.Object):
 
 	@dbus.service.signal(BUS_NAME, signature='uu')
 	def TouchpadEvent(self, fingers, direction):
-		print(f'${fingers=} ${direction=}')
 		pass
 
-	@dbus.service.method(BUS_NAME, in_signature='uu')
-	def EchoSignal(self, fingers, direction):
-		self.TouchpadEvent(fingers, direction)
+	@dbus.service.method(BUS_NAME)
+	def Q(self):
+		GLib.MainLoop().quit()
 
+
+service = None
 
 def run_service():
-	TpService()
-
+	global service
+	service = TpService()
 	try:
 		GLib.MainLoop().run()
 	except KeyboardInterrupt:
 		GLib.MainLoop().quit()
 
+def get_service():
+	global service
+	return service
 
 def main():
 	DBusGMainLoop(set_as_default=True)
