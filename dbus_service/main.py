@@ -1,9 +1,6 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-import dbus
-import dbus.service
-
 import os
 import threading
 import time
@@ -44,9 +41,8 @@ class TouchpadListener(object):
 	FIRST_MOTION_THRESHOLD = 25
 	MOTION_THRESHOLD = 50
 
-	def __init__(self, dbus_session):
+	def __init__(self):
 		super(TouchpadListener, self).__init__()
-		self.dbus_session = dbus_session
 		self._threshold = self.FIRST_MOTION_THRESHOLD
 
 	def loop(self, event):
@@ -84,7 +80,6 @@ class TouchpadListener(object):
 
 	def run(self):
 		time.sleep(1)
-		self.dbus_object = self.dbus_session.get_object(service.TpService.BUS_NAME, service.TpService.BUS_PATH)
 		for event in li.get_event():
 			if event.type in self.events_listeners:
 				self.loop(event)
@@ -102,7 +97,7 @@ def main():
 		return
 	start_service()
 
-	tpl = TouchpadListener(dbus.SessionBus())
+	tpl = TouchpadListener()
 	tpl.run()
 
 
