@@ -1,9 +1,13 @@
 /* exported orderOverview, disorderOverview */
+const Config = imports.misc.config:
 const Workspace = imports.ui.workspace;
+
+const SHELL_VERSION = Config.PACKAGE_VERSION;
 
 
 function _computeWindowScale(window) {
-	let ratio = window.height / this._monitor.height;
+	let height = SHELL_VERSION >= '3.38' ? window.boundingBox.height : window.height;
+	let ratio = height / this._monitor.height;
 	return (1 / ratio) / 2;
 }
 
@@ -34,8 +38,14 @@ function computeLayout(windows, layout) {
 		for (; windowIdx < sortedWindows.length; windowIdx++) {
 			let window = sortedWindows[windowIdx];
 			let s = this._computeWindowScale(window);
-			let width = window.width * s;
-			let height = window.height * s;
+			let width, height;
+			if (SHELL_VERSION >= '3.38') {
+				width = window.boundingBox.width * s;
+				height = window.boundingBox.height * s;
+			} else {
+				width = window.width * s;
+				height =  window.height * s;
+			}
 			row.fullHeight = Math.max(row.fullHeight, height);
 
 			// either new width is < idealWidth or new width is nearer from idealWidth then oldWidth
@@ -79,7 +89,6 @@ function restoreAllProperties() {
 		let from = overviewOriginals[p][0];
 		let original = overviewOriginals[p][1];
 
-		global.log(propertyName + " " + original)
 		from[propertyName] = original;
 	}
 }
@@ -90,7 +99,7 @@ function restoreAllProperties() {
  */
 function orderOverview() {
 	saveAndReplace(Workspace.UnalignedLayoutStrategy.prototype, '_computeWindowScale', _computeWindowScale)
-	saveAndReplace(Workspace, 'WINDOW_CLONE_MAXIMUM_SCALE', 0.7)
+	saveAndReplace(Workspace, SHELL_VERSION < '3.38' ? 'WINDOW_CLONE_MAXIMUM_SCALE' : 'WINDOW_PREVIEW_MAXIMUM_SCALE', 0.7)
 	saveAndReplace(Workspace.UnalignedLayoutStrategy.prototype, '_sortRow', (row) => {})
 	saveAndReplace(Workspace.UnalignedLayoutStrategy.prototype, 'computeLayout', computeLayout)
 }
