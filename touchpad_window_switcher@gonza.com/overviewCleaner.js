@@ -1,5 +1,5 @@
 /* exported orderOverview, disorderOverview */
-const Config = imports.misc.config:
+const Config = imports.misc.config;
 const Workspace = imports.ui.workspace;
 
 const SHELL_VERSION = Config.PACKAGE_VERSION;
