@@ -318,7 +318,7 @@ var SwitcherPopup = GObject.registerClass({
             this.ease({
                 opacity: 0,
                 duration: POPUP_FADE_OUT_TIME,
-                mode: Clutter.Animation.EASE_OUT_QUAD,
+                mode: Clutter.Animation ? Clutter.Animation.EASE_OUT_QUAD : Clutter.AnimationMode.EASE_OUT_QUAD , // 3.38
                 onComplete: () => this.destroy(),
             });
         } else {
