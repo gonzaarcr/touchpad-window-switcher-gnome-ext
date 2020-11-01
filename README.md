@@ -6,6 +6,9 @@ Capabilities:
   - Swipe with 3 fingers right-left to switch windows
   - Swipe with 3 fingers up-down to show desktop/overview
   - Swipe with 4 fingers to change worksapce
+  - Swipe down to show desktop (see instructions below)
+  - Swipe up to open the overview
+    - Once in overview you can change windows there by swiping right/left and selecting with down
 
 Works on Wayland out of the box. To make it work on Xorg:
 
