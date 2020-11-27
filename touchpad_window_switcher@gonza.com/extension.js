@@ -6,6 +6,7 @@ const Main = imports.ui.main;
 const Me = imports.misc.extensionUtils.getCurrentExtension();
 const MyAltTab = Me.imports.myAltTab;
 const DbusClient = Me.imports.dbusClient;
+const Desktop = Me.imports.desktop;
 const OverviewCleaner = Me.imports.overviewCleaner;
 
 let gestureHandler = null;
@@ -29,13 +30,9 @@ const TouchpadGestureAction = class {
 	constructor() {
 		if (Clutter.DeviceManager) {
 			// Fallback for GNOME 3.32 and 3.34
-			const deviceManager = Clutter.DeviceManager.get_default();
-			this._virtualKeyboard = deviceManager.create_virtual_device(Clutter.InputDeviceType.KEYBOARD_DEVICE);
 			this._gestureCallbackID = global.stage.connect('captured-event', this._handleEvent.bind(this));
 		} else {
 			// For GNOME >= 3.36
-			const seat = Clutter.get_default_backend().get_default_seat();
-			this._virtualKeyboard = seat.create_virtual_device(Clutter.InputDeviceType.KEYBOARD_DEVICE);
 			this._gestureCallbackID = global.stage.connect('captured-event::touchpad', this._handleEvent.bind(this));
 		}
 		this._dx = 0;
@@ -51,6 +48,8 @@ const TouchpadGestureAction = class {
 		this._motion_threshold = FIRST_MOTION_THRESHOLD;
 		this._shortcutMinimized = false;
 		this._overviewFocusIdx = null;
+
+		this._desktop = Meta.is_wayland_compositor() ? new Desktop.WaylandShowDesktop() : new Desktop.XShowDesktop();
 	}
 
 	touchpadEvent(fingers, direction) {
@@ -128,8 +127,10 @@ const TouchpadGestureAction = class {
 				}
 				break;
 			case 'show-desktop':
+				this._desktop.unshowDesktop()
+				break;
 			case 'unshow-desktop':
-				this._sendKeyEvent(Clutter.KEY_Super_L, Clutter.KEY_D);
+				this._desktop.showDesktop()
 				break;
 			default:
 				break;
@@ -163,7 +164,7 @@ const TouchpadGestureAction = class {
 		} else if (dir == Meta.MotionDirection.UP) {
 			if (popup == null && (getTime() - this._lastVertical) > 1000) {
 				this._lastVertical = getTime();
-				if (this._canUnshowDesktop()) {
+				if (this._desktop.canUnshowDesktop()) {
 					this._doAction('unshow-desktop');
 					ret = Clutter.EVENT_STOP;
 				} else if (!Main.overview.visible) {
@@ -179,7 +180,7 @@ const TouchpadGestureAction = class {
 					log('Hide overview');
 					this._hideOverview();
 					ret = Clutter.EVENT_STOP;
-				} else if (this._canShowDesktop()) {
+				} else if (this._desktop.canShowDesktop()) {
 					log('show-desktop');
 					this._doAction('show-desktop');
 					ret = Clutter.EVENT_STOP;
@@ -193,16 +194,6 @@ const TouchpadGestureAction = class {
 		}
 
 		return ret;
-	}
-
-	_canUnshowDesktop() {
-		let windows = global.workspace_manager.get_active_workspace().list_windows();
-		return windows.length > 0 && windows.every(x => x.is_hidden())
-	}
-
-	_canShowDesktop() {
-		let windows = global.workspace_manager.get_active_workspace().list_windows();
-		return windows.length > 0 && windows.some(x => !x.is_hidden())
 	}
 
 	_gestureEnd() {
@@ -277,13 +268,6 @@ const TouchpadGestureAction = class {
 			this._overviewFocusIdx = null;
 			win._activate();
 		}
-	}
-
-	// https://gitlab.gnome.org/GNOME/metacity/-/blob/master/src/core/screen.c#L2297
-	async _sendKeyEvent(...keys) {
-		let currentTime = Clutter.get_current_event_time();
-		keys.forEach(key => this._virtualKeyboard.notify_keyval(currentTime, key, Clutter.KeyState.PRESSED));
-		keys.forEach(key => this._virtualKeyboard.notify_keyval(currentTime, key, Clutter.KeyState.RELEASED));
 	}
 };
 
