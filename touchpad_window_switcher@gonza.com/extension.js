@@ -127,10 +127,10 @@ const TouchpadGestureAction = class {
 				}
 				break;
 			case 'show-desktop':
-				this._desktop.unshowDesktop()
+				this._desktop.showDesktop()
 				break;
 			case 'unshow-desktop':
-				this._desktop.showDesktop()
+				this._desktop.unshowDesktop()
 				break;
 			default:
 				break;
