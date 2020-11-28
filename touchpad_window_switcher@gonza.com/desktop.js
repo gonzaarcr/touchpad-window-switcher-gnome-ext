@@ -14,12 +14,17 @@ var WaylandShowDesktop = class {
 		return !Main.overview.visible && this.toMaximize.length > 0 && this.isShowingDesktop();
 	}
 
+	canShowDesktop() {
+		let windows = global.workspace_manager.get_active_workspace().list_windows();
+		return windows.length > 0 && windows.some(x => !x.is_hidden())
+	}
+
 	isShowingDesktop() {
 		let windows = global.workspace_manager.get_active_workspace().list_windows();
 		return windows.every(x => x.minimized);
 	}
 
-	showDesktop() {
+	async showDesktop() {
 		// TODO para distintos workspaces
 		this.toMaximize = [];
 		let windows = global.workspace_manager.get_active_workspace().list_windows();
@@ -32,7 +37,7 @@ var WaylandShowDesktop = class {
 		return windows.length > 0 && windows.every(x => x.is_hidden())
 	}
 
-	unshowDesktop() {
+	async unshowDesktop() {
 		let windows = global.workspace_manager.get_active_workspace().list_windows();
 		for (let i = 0; i < windows.length; i++) {
 			if (this.toMaximize.indexOf(windows[i]) !== -1)
