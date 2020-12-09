@@ -1,6 +1,6 @@
 {
+	"description": "3 fingers window switcher. To make it work on Xorg check the service on github.\n\nUp - down: toggle between overview and show desktop (Needs Super+D shorcut to be set. set it with `gsettings set org.gnome.desktop.wm.keybindings show-desktop '&lt;Super&gt;d'`)",
 	"name": "Touchpad Window Switcher",
-	"description": "Window switcher (Wayland only)",
 	"shell-version": [
 		"3.34",
 		"3.32",
