@@ -1,5 +1,6 @@
 /* exported orderOverview, disorderOverview */
 const Config = imports.misc.config;
+const Params = imports.misc.params;
 const Workspace = imports.ui.workspace;
 
 const SHELL_VERSION = Config.PACKAGE_VERSION;
@@ -75,6 +76,73 @@ function computeLayout(windows, layout) {
 	layout.gridHeight = gridHeight;
 }
 
+function computeLayout40(windows, layoutParams) {
+	layoutParams = Params.parse(layoutParams, {
+		numRows: 0,
+	});
+
+	if (layoutParams.numRows === 0)
+		throw new Error(`${this.constructor.name}: No numRows given in layout params`);
+
+	const numRows = layoutParams.numRows;
+
+	let rows = [];
+	let totalWidth = 0;
+	for (let i = 0; i < windows.length; i++) {
+		let window = windows[i];
+		let s = this._computeWindowScale(window);
+		totalWidth += window.boundingBox.width * s;
+	}
+
+	let idealRowWidth = totalWidth / numRows;
+
+	// Sort windows vertically to minimize travel distance.
+	// This affects what rows the windows get placed in.
+	let sortedWindows = windows.slice();
+	sortedWindows.sort((a, b) => b.metaWindow.get_user_time() - a.metaWindow.get_user_time());
+
+	let windowIdx = 0;
+	for (let i = 0; i < numRows; i++) {
+		let row = this._newRow();
+		rows.push(row);
+
+		for (; windowIdx < sortedWindows.length; windowIdx++) {
+			let window = sortedWindows[windowIdx];
+			let s = this._computeWindowScale(window);
+			let width = window.boundingBox.width * s;
+			let height = window.boundingBox.height * s;
+			row.fullHeight = Math.max(row.fullHeight, height);
+
+			// either new width is < idealWidth or new width is nearer from idealWidth then oldWidth
+			if (this._keepSameRow(row, window, width, idealRowWidth) || (i === numRows - 1)) {
+				row.windows.push(window);
+				row.fullWidth += width;
+			} else {
+				break;
+			}
+		}
+	}
+
+	let gridHeight = 0;
+	let maxRow;
+	for (let i = 0; i < numRows; i++) {
+		let row = rows[i];
+		this._sortRow(row);
+
+		if (!maxRow || row.fullWidth > maxRow.fullWidth)
+			maxRow = row;
+		gridHeight += row.fullHeight;
+	}
+
+	return {
+		numRows,
+		rows,
+		maxColumns: maxRow.windows.length,
+		gridWidth: maxRow.fullWidth,
+		gridHeight,
+	};
+}
+
 var overviewOriginals = {}
 function saveAndReplace(from, propertyName, newOne) {
 	overviewOriginals[String(from) + '.' + String(propertyName)] = [ from, from[propertyName] ];
@@ -99,9 +167,12 @@ function restoreAllProperties() {
  */
 function orderOverview() {
 	saveAndReplace(Workspace.UnalignedLayoutStrategy.prototype, '_computeWindowScale', _computeWindowScale)
-	saveAndReplace(Workspace, SHELL_VERSION < '3.38' ? 'WINDOW_CLONE_MAXIMUM_SCALE' : 'WINDOW_PREVIEW_MAXIMUM_SCALE', 0.7)
+	// Windows on 40 are smaller
+	if (SHELL_VERSION < '40')
+		saveAndReplace(Workspace, SHELL_VERSION < '3.38' ? 'WINDOW_CLONE_MAXIMUM_SCALE' : 'WINDOW_PREVIEW_MAXIMUM_SCALE', 0.7)
 	saveAndReplace(Workspace.UnalignedLayoutStrategy.prototype, '_sortRow', (row) => {})
-	saveAndReplace(Workspace.UnalignedLayoutStrategy.prototype, 'computeLayout', computeLayout)
+	let cl = SHELL_VERSION < '40' ? computeLayout : computeLayout40;
+	saveAndReplace(Workspace.UnalignedLayoutStrategy.prototype, 'computeLayout', cl)
 }
 
 function disorderOverview() {
