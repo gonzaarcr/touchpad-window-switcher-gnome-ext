@@ -6,7 +6,9 @@
 		"3.32",
 		"3.36",
 		"3.38",
-		"40"
+		"40",
+		"41",
+		"42"
 	],
 	"url": "https://github.com/gonzaarcr/touchpad-window-switcher-gnome-ext",
 	"uuid": "touchpad_window_switcher@gonza.com"
